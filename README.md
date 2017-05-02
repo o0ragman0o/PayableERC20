@@ -32,9 +32,13 @@ This contract extends the [ERC20 API](https://github.com/o0ragman0o/ERC20) with 
 function PayableERC20(address _creator, bytes32 _regName, address _owner)
 ```
 A [SandalStraps](https://github.com/o0ragman0o/SandalStraps) compliant constructor. This constructor will award 0.2% of tokens to `_creator`.
+
 `_creator` Typically the creating factory address. Can be "" if deployed manually.
+
 `_regName` A unique registrar name for indexing in a SandalStraps registrar. Can be "" if deployed manually
+
 `_owner` The address of a third party owner if `msg.sender` is not the intended owner. Can be "" to default to `msg.sender` is intended owner
+
 
 ### *default function*
 ```
@@ -54,30 +58,40 @@ Returns the boolean state of whether the contract accepts payments.
 function setSymbol(string _symbol) returns (bool);
 ```
 Set the token symbol to `_symbol`. This can only be done once!
+
 `_symbol` The required token symbol
+
 Returns success
+
 
 ### etherBalanceOf(address _addr) constant returns (uint);
 ```
 function etherBalanceOf(address _addr) constant returns (uint);
 ```
-`_addr` an account address
+`_addr` an account address.
+
 Returns the calculated balance of ether for `_addr`
+
 
 ### withdrawFor(address _addr) returns (bool);
 ```
 function withdrawFor(address _addr) returns (bool);
 ```
 Withdraw the ether balance for `_addr` to `_addr`
+
 `_addr` an account address
+
 Returns success
+
 
 ### acceptPayments(bool _accept) returns (bool);
 ```
 function acceptPayments(bool _accept) returns (bool);
 ```
 Change accept payments to `_accept`
+
 `_accept` a bool for the required acceptance state
+
 Returns success
     
 ## Events
