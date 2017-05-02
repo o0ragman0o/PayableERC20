@@ -197,8 +197,8 @@ contract PayableERC20 is ERC20Token, RegBase, PayableERC20Interface
         
         // Update accounts ether balance
         uint claim = claimablePayments(_addr);
+        lastClaimedAt[_addr] = deposits;
         if (claim > 0) {
-            lastClaimedAt[_addr] = deposits;
             etherBalance[_addr] += claim;
         }
     }
