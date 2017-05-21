@@ -7,13 +7,16 @@ License: MIT
 
 ## Overview
 
-PayableERC20 is an simple ERC20 token that distributes payments recieved to token holders proportional to their holding.
+PayableERC20 is a payment distributor implimenting the ERC20 token standard. Payments recieved are distributed to token holders proportional to their holding at the time of payment.
 
-It has a fixed supply of 100,000,000 tokens which can be represented as 100.000000% maing transfers and holding balances more intutive.
+It has a fixed supply of 100,000,000 tokens which can be represented as 100.000000% making transfers and holding balances more intutive.
 
 Upon creation, the total supply is granted to the owner who can then transfer to parties accordingly.
 
 Payments sent to the default function can be sent with minimum transaction gas as no state processing is required.
+
+Withdrawals can be made at any time and a `withdrawFrom()` function is implimented to call `withdraw()` of an external contract where the current
+instance may be a value holder.
 
 ## Fee
 A fee of 0.2% tokens is awared to the creator of the contract.  This is typically the contract's [SandalStraps](https://github.com/o0ragman0o/SandalStraps) factory.
@@ -35,9 +38,9 @@ A [SandalStraps](https://github.com/o0ragman0o/SandalStraps) compliant construct
 
 `_creator` Typically the creating factory address. Can be "" if deployed manually.
 
-`_regName` A unique registrar name for indexing in a SandalStraps registrar. Can be "" if deployed manually
+`_regName` A unique registrar name for indexing in a SandalStraps registrar. Can be "" if deployed manually.
 
-`_owner` The address of a third party owner if `msg.sender` is not the intended owner. Can be "" to default to `msg.sender` is intended owner
+`_owner` The address of a third party owner if `msg.sender` is not the intended owner. Can be "" to default to `msg.sender` is intended owner.
 
 
 ### *default function*
@@ -53,13 +56,13 @@ bool public acceptingPayments;
 ```
 Returns the boolean state of whether the contract accepts payments.
 
-### setSymbol(string _symbol) returns (bool);
+### setSymbol
 ```
 function setSymbol(string _symbol) returns (bool);
 ```
 Set the token symbol to `_symbol`. This can only be done once!
 
-`_symbol` The required token symbol
+`_symbol` The required token symbol.
 
 Returns success
 
@@ -72,33 +75,55 @@ function etherBalanceOf(address _addr) constant returns (uint);
 
 Returns the calculated balance of ether for `_addr`
 
-
-### withdrawFor(address _addr) returns (bool);
+### withdraw
 ```
-function withdrawFor(address _addr) returns (bool);
+function withdraw(uint _value) returns (bool);
 ```
-Withdraw the ether balance for `_addr` to `_addr`
+Withdraws a value of ether from the sender's balance.
 
-`_addr` an account address
+`_value` the value to withdraw.
+
+Return success
+    
+### withdrawFor
+```
+    function withdrawFor(address _addr, uint _value) returns (bool);
+```
+Withdraws a value of ether from a balance holder to their address.
+
+`_addr` a holder address in the contract.
+
+`_value` the value to withdraw.
 
 Returns success
+ 
+### withdrawFrom
+```
+function withdrawFrom(address _addr, uint _value) returns (bool);
+```
+Call `withdraw()` of an external contract.
 
+`_addr` An external contract with a `withdraw()` function.
 
-### acceptPayments(bool _accept) returns (bool);
+`_value` the value to withdraw.
+
+Return success
+
+### acceptPayments
 ```
 function acceptPayments(bool _accept) returns (bool);
 ```
-Change accept payments to `_accept`
+Change accept payments to `_accept`.
 
-`_accept` a bool for the required acceptance state
+`_accept` a bool for the required acceptance state.
 
-Returns success
+Returns success.
     
 ## Events
 
 ### Deposit;
 ```
-event Deposit(uint value);
+event Deposit
 ```
 Triggered when the contract recieves a payment of `value`
     
@@ -106,11 +131,11 @@ Triggered when the contract recieves a payment of `value`
 ```
 event Withdrawal(uint value);
 ```
-Triggered upon a withdrawalof `value`
+Triggered upon a withdrawalof `value`.
 
 ### AcceptingPayments;
 ```
 AcceptingPayments(bool accepting);
 ```
-Triggered when accepting payment state changes
+Triggered when accepting payment state changes.
 

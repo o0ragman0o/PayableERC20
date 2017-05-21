@@ -1,7 +1,7 @@
 /*
 file:   PayableERC20.sol
-ver:    0.2.0
-updated:29-Apr-2017
+ver:    0.3.0
+updated:21-May-2017
 author: Darryl Morris
 email:  o0ragman0o AT gmail.com
 
@@ -15,10 +15,18 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
 See MIT Licence for further details.
 <https://opensource.org/licenses/MIT>.
+
+Release notes:
+- Complied with WithdrawalInterface
+- Changed `withdrawFor(address _addr); returns (bool)` to 
+    `withdrawFor(address _addr uint _value) returns (bool);`
+- Added `withdraw(uint _value) returns (bool);`
+- Added `withdrawFrom(address _addr, uint _value) returns (bool);`
 */
 
 pragma solidity ^0.4.10;
 
+import "https://github.com/o0ragman0o/Withdrawable/contracts/WithdrawableInterface.sol";
 import "https://github.com/o0ragman0o/ERC20/ERC20.sol";
 import "https://github.com/o0ragman0o/SandalStraps/contracts/Factory.sol";
 
@@ -37,7 +45,7 @@ contract PayableERC20Interface
 
     // The total ether deposits up to when a holder last triggered a claim
     uint deposits;
-
+    
     // The contract balance when a holder last triggered a claim
     uint lastBalance;
     
@@ -71,10 +79,23 @@ contract PayableERC20Interface
     /// @return The calculated balance of ether for `_addr`
     function etherBalanceOf(address _addr) constant returns (uint);
 
-    /// @notice Withdraw the ether balance for `_addr`
-    /// @param _addr an account address
+    /// @notice withdraw `_value` from account `msg.sender`
+    /// @param _value the value to withdraw
     /// @return success
-    function withdrawFor(address _addr) returns (bool);
+    function withdraw(uint _value) returns (bool);
+    
+    /// @notice withdraw `_value` from account `_addr`
+    /// @param _addr a holder address in the contract
+    /// @param _value the value to withdraw
+    /// @return success
+    function withdrawFor(address _addr, uint _value) returns (bool);
+    
+    /// @notice Withdraw `_value` from external contract at `_addr` to this
+    /// this contract
+    /// @param _addr a holder address in the contract
+    /// @param _value the value to withdraw
+    /// @return success
+    function withdrawFrom(address _addr, uint _value) returns (bool);
 
     /// @notice Change accept payments to `_accept`
     /// @param _accept a bool for the required acceptance state
@@ -86,7 +107,7 @@ contract PayableERC20 is ERC20Token, RegBase, PayableERC20Interface
 {
 /* Constants */
     
-    bytes32 public constant VERSION = "PayableERC20 v0.2.0";
+    bytes32 public constant VERSION = "PayableERC20 v0.3.0";
 
 /* Functions Public non-constant*/
 
@@ -128,36 +149,6 @@ contract PayableERC20 is ERC20Token, RegBase, PayableERC20Interface
         return true;
     }
 
-    function etherBalanceOf(address _addr)
-        public
-        constant
-        returns (uint)
-    {
-        return etherBalance[_addr] + claimablePayments(_addr);
-    }
-    
-    function paymentsToDate()
-        public
-        constant
-        returns (uint)
-    {
-        return deposits + this.balance - lastBalance; 
-    }
-    
-    function withdrawFor(address _addr)
-        public
-        preventReentry
-        returns (bool)
-    {
-        claimPaymentsFor(_addr);
-        uint value = etherBalance[_addr];
-        etherBalance[_addr] = 0;
-        lastBalance -= value;
-        Withdrawal(value);
-        _addr.transfer(value);
-        return true;
-    }
-
     function acceptPayments(bool _accept)
         public
         onlyOwner
@@ -185,7 +176,82 @@ contract PayableERC20 is ERC20Token, RegBase, PayableERC20Interface
         return true;
     }
 
-    function claimPaymentsFor(address _addr)
+    function etherBalanceOf(address _addr)
+        public
+        constant
+        returns (uint)
+    {
+        return etherBalance[_addr] + claimablePayments(_addr);
+    }
+    
+    // Withdraw an amount of the sender's ether balance
+    function withdraw(uint _value)
+        public
+        preventReentry
+        returns (bool)
+    {
+        return intlWithdraw(msg.sender, _value);
+    }
+    
+    // Withdraw on behalf of a balance holder
+    function withdrawFor(address _addr, uint _value)
+        public
+        preventReentry
+        returns (bool)
+    {
+        return intlWithdraw(_addr, _value);
+    }
+    
+    // Withdraw from an external contract in which this contract has a balance.
+    // Reentry is prevented to all but the default function to recieve payment.
+    function withdrawFrom(address _addr, uint _value)
+        public
+        preventReentry
+        returns (bool)
+    {
+        return WithdrawableInterface(_addr).withdraw(_value);
+    }
+    
+    function intlWithdraw(address _addr, uint _value)
+        internal
+        returns (bool)
+    {
+        // Cache state values manipulate rather than re-writes
+        // across a number of functions
+        uint lastBal = lastBalance;
+        uint ethBal = etherBalance[_addr];
+        uint claim;
+        
+        // Check for unprocessed deposits
+        if (this.balance > lastBal) {
+            deposits += this.balance - lastBal;
+            lastBal = this.balance;
+        }
+
+        // claimPaymentsFor(_addr);
+        ethBal += balance[_addr] * (deposits - lastClaimedAt[_addr]) /
+            TOTALSUPPLY;
+        lastClaimedAt[_addr] = deposits;
+
+        // check balance and withdraw on valid amount
+        require(_value <= ethBal);
+        etherBalance[_addr] = ethBal - _value;
+        // lastBalance = this.balance - _value;
+        lastBalance = lastBal - _value;
+        Withdrawal(_value);
+        _addr.transfer(_value);
+        return true;
+    }
+
+    function paymentsToDate()
+        public
+        constant
+        returns (uint)
+    {
+        return deposits + (this.balance - lastBalance); 
+    }
+
+    function updateDeposits()
         internal
     {
         // Update recent deposits
@@ -194,7 +260,12 @@ contract PayableERC20 is ERC20Token, RegBase, PayableERC20Interface
             deposits += this.balance - lb;
             lastBalance = this.balance;
         }
-        
+    }
+    
+    function claimPaymentsFor(address _addr)
+        internal
+    {
+        updateDeposits();
         // Update accounts ether balance
         uint claim = claimablePayments(_addr);
         lastClaimedAt[_addr] = deposits;
@@ -223,7 +294,7 @@ contract PayableERC20Factory is Factory
 //
 
     bytes32 constant public regName = "PayableERC20";
-    bytes32 constant public VERSION = "PayableERC20Factory v0.2.0";
+    bytes32 constant public VERSION = "PayableERC20Factory v0.3.0";
 
 //
 // Functions
@@ -253,6 +324,7 @@ contract PayableERC20Factory is Factory
         feePaid
         returns(address kAddr_)
     {
+        require(_regName != 0x0);
         _owner = _owner == 0x0 ? msg.sender : _owner;
         _regName = _regName == 0x0 ? regName | bytes32(now) : _regName;
         kAddr_ = address(new PayableERC20(owner, _regName, _owner));
